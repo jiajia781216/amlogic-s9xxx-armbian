@@ -190,6 +190,7 @@ on:
           - 5.15.y_6.1.y
           - 6.1.y_6.12.y
           - 6.1.y_6.6.y
+          - 6.1.135
           - 6.6.y_6.12.y
       auto_kernel:
         description: "Auto use the latest kernel."
@@ -237,6 +238,7 @@ on:
         options:
           - ophub
           - angel
+          - woloong
 
 env:
   TZ: America/New_York
