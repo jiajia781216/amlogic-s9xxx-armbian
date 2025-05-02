@@ -5,7 +5,6 @@
 #==========================================================================
 
 name: Compile the kernel
-uses: jiajia781216/amlogic-s9xxx-armbian@main
 
 on:
   repository_dispatch:
