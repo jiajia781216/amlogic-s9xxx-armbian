@@ -177,7 +177,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.1.y_6.12.y"
+        default: "6.6.y"
         type: choice
         options:
           - 5.4.y
@@ -198,7 +198,7 @@ on:
         default: true
         type: boolean
       kernel_repo:
-        description: "Set the kernel repository."
+        description: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/"
         required: false
         default: "ophub/kernel"
         type: choice
@@ -346,9 +346,9 @@ jobs:
           build_target: armbian
           armbian_path: build/output/images/*.img.gz
           armbian_board: ${{ inputs.armbian_board }}
-          armbian_kernel: "6.6.88" # 如果支持指定版本号
+          armbian_kernel: "6.6.y" # 如果支持指定版本号
           auto_kernel: false # 确保不自动选择内核
-          kernel_repo: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/6.6.88.tar.gz"
+          kernel_repo: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/"
           kernel_usage: ${{ inputs.kernel_usage }}
           armbian_fstype: ${{ inputs.armbian_fstype }}
           builder_name: ${{ inputs.builder_name }}
