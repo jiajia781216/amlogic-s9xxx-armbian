@@ -107,17 +107,21 @@ jobs:
           sudo timedatectl set-timezone "${TZ}"
           echo "status=success" >> ${GITHUB_OUTPUT}
 
+      - name: Clean previous build directory
+        run: |
+          rm -rf /home/runner/builder || true
+
       - name: Prepare build directory
         run: |
-          mkdir -p /builder/{kernel,output}
-          ln -sf /builder/kernel /home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main/compile-kernel/kernel
-          ln -sf /builder/output /home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main/compile-kernel/output
+          mkdir -p /home/runner/builder/{kernel,output}
+          ln -sf /home/runner/builder/kernel /home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main/compile-kernel/kernel
+          ln -sf /home/runner/builder/output /home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main/compile-kernel/output
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
         id: compile
         uses: jiajia781216/amlogic-s9xxx-armbian@main
-        if: ${{ steps.mapped.outputs.status == 'success' && !cancelled() }}
+        if: ${{ steps.prepare.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
           kernel_source: ${{ inputs.kernel_source }}
