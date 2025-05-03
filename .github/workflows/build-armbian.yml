@@ -177,7 +177,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.6.88"
+        default: "6.6.y"
         type: choice
         options:
           - 5.4.y
@@ -343,7 +343,7 @@ jobs:
         uses: jiajia781216/amlogic-s9xxx-armbian@main
         if: ${{ steps.clean.outputs.status }} == 'success' && !cancelled()
         with:
-          build_target: armbian
+          build_target: Woloong
           armbian_path: build/output/images/*.img.gz
           armbian_board: ${{ inputs.armbian_board }}
           armbian_kernel: "6.6.88" # 如果支持指定版本号
