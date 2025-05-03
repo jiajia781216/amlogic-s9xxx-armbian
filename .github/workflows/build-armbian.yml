@@ -177,7 +177,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.6.y"
+        default: "6.6.88"
         type: choice
         options:
           - 5.4.y
@@ -195,7 +195,7 @@ on:
       auto_kernel:
         description: "Auto use the latest kernel."
         required: false
-        default: true
+        default: false
         type: boolean
       kernel_repo:
         description: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/"
