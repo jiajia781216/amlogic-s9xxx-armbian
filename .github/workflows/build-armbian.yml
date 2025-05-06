@@ -200,11 +200,10 @@ on:
       kernel_repo:
         description: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/"
         required: false
-        default: "jiajia781216/kernel"
+        default: "jiajia781216/amlogic-s9xxx-armbian"
         type: choice
         options:
           - ophub/kernel
-          - jiajia781216/kernel
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
