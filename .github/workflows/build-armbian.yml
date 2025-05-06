@@ -346,7 +346,7 @@ jobs:
           build_target: armbian
           armbian_path: build/output/images/*.img.gz
           armbian_board: ${{ inputs.armbian_board }}
-          armbian_kernel: "6.6.88" # 如果支持指定版本号
+          armbian_kernel: "6.6.89" # 如果支持指定版本号
           auto_kernel: false # 确保不自动选择内核
           kernel_repo: "https://github.com/jiajia781216/amlogic-s9xxx-armbian/releases/download/kernel_stable/"
           kernel_usage: ${{ inputs.kernel_usage }}
