@@ -21,7 +21,7 @@ on:
       kernel_version:
         description: "Select kernel version"
         required: false
-        default: "5.4.y"
+        default: "6.1.140"
         type: choice
         options:
           - 5.4.y
@@ -86,7 +86,7 @@ on:
         type: choice
         options:
           - -ophub
-          - -yourname
+          - -Woloong
 
 env:
   TZ: America/New_York
