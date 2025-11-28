@@ -99,7 +99,6 @@ jobs:
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
           sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-build-armbian-depends)
           sudo -E systemctl daemon-reload
-          #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
           sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
@@ -131,23 +130,15 @@ jobs:
           df -Th
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Create a mapped directory
-        id: mapped
-        working-directory: /builder
-        run: |
-          df -hT ${PWD}
-          mkdir -p /builder/{kernel,output,ccache}
-          ln -sf /builder/kernel /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/compile-kernel/kernel
-          ln -sf /builder/output /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/compile-kernel/output
-          sudo rm -rf /root/.ccache
-          sudo ln -sf /builder/ccache /root/.ccache
-          echo "status=success" >> ${GITHUB_OUTPUT}
+      # ❌ 删除了 "Create a mapped directory" 步骤
+      # 原因：该步骤硬编码了 ophub 路径，与你的 fork 不兼容；
+      #       且 ophub 的 Action 内部已处理路径，无需外部链接。
 
       - name: Get kernel source hash
         id: kernelhash
-        if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
+        # 修改条件：依赖 disk 步骤成功（原依赖 mapped，现已删除）
+        if: ${{ steps.disk.outputs.status }} == 'success' && !cancelled()
         run: |
-          # Get the latest source hash from the kernel repository
           api_url="https://api.github.com/repos/${{ inputs.kernel_source }}/linux-${{ inputs.kernel_version }}/git/ref/heads/main"
           source_hash=$(curl -fsSL -m 20 \
               -H "Accept: application/vnd.github+json" \
@@ -168,8 +159,9 @@ jobs:
             kernel-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
-        uses: jiajia781216/amlogic-s9xxx-armbian@main
-        if: ${{ steps.mapped.outputs.status }} == 'success' && !cancelled()
+        uses: jiajia781216/amlogic-s9xxx-armbian@main   # ← 你的 fork
+        # 条件同步更新：依赖 disk 成功（mapped 已删）
+        if: ${{ steps.disk.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: kernel
           kernel_source: ${{ inputs.kernel_source }}
@@ -183,7 +175,8 @@ jobs:
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
-        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
+        # 注意：此步骤依赖 env.PACKAGED_STATUS，需确保编译 Action 正确导出该变量
+        if: ${{ env.PACKAGED_STATUS == 'success' }} && !cancelled()
         with:
           tag: kernel_stable
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
