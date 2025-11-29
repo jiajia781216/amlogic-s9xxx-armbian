@@ -512,7 +512,11 @@ download_kernel() {
                     # Download the kernel files. If the download fails, try again 10 times.
                     [[ -d "${kernel_path}/${key}" ]] || mkdir -p ${kernel_path}/${key}
                     for t in {1..10}; do
-                        curl -fsSL "${kernel_down_from}" -o "${kernel_path}/${key}/${kernel_var}.tar.gz"
+                        if [[ -n "${CUSTOM_GH_TOKEN}" ]]; then
+                            curl -fsSL -H "Authorization: token ${CUSTOM_GH_TOKEN}" "${kernel_down_from}" -o "${kernel_path}/${key}/${kernel_var}.tar.gz"
+                        else
+                            curl -fsSL "${kernel_down_from}" -o "${kernel_path}/${key}/${kernel_var}.tar.gz"
+                        fi
                         [[ "${?}" -eq 0 ]] && break || sleep 60
                     done
                     [[ "${?}" -eq 0 ]] || error_msg "Failed to download the kernel files from the server."
