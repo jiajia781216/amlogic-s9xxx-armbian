@@ -137,7 +137,7 @@ jobs:
       - name: Get kernel source hash
         id: kernelhash
         # 修改条件：依赖 disk 步骤成功（原依赖 mapped，现已删除）
-        if: ${{ steps.disk.outputs.status }} == 'success' && !cancelled()
+        if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         run: |
           api_url="https://api.github.com/repos/${{ inputs.kernel_source }}/linux-${{ inputs.kernel_version }}/git/ref/heads/main"
           source_hash=$(curl -fsSL -m 20 \
@@ -161,7 +161,7 @@ jobs:
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
         uses: jiajia781216/amlogic-s9xxx-armbian@main   # ← 你的 fork
         # 条件同步更新：依赖 disk 成功（mapped 已删）
-        if: ${{ steps.disk.outputs.status }} == 'success' && !cancelled()
+        if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
           kernel_source: ${{ inputs.kernel_source }}
@@ -176,7 +176,7 @@ jobs:
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
         # 注意：此步骤依赖 env.PACKAGED_STATUS，需确保编译 Action 正确导出该变量
-        if: ${{ env.PACKAGED_STATUS == 'success' }} && !cancelled()
+        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
         with:
           tag: kernel_stable
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
