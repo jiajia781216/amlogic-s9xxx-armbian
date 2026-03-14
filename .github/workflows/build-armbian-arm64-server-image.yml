@@ -239,11 +239,11 @@ on:
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "jiajia781216/kernel"
+        default: "jiajia781216/amlogic-s9xxx-armbian/releases"
         type: choice
         options:
           - ophub/kernel
-          - jiajia781216/kernel
+          - jiajia781216/amlogic-s9xxx-armbian/releases
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
