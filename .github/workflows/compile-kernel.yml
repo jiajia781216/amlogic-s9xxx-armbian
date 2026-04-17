@@ -89,11 +89,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
-    if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || github.event.repository.owner.id == github.event.sender.id }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
       - name: Initialize the build environment
         id: init
@@ -146,13 +146,34 @@ jobs:
         run: |
           # Get the latest source hash from the kernel repository
           api_url="https://api.github.com/repos/${{ inputs.kernel_source }}/linux-${{ inputs.kernel_version }}/git/ref/heads/main"
-          source_hash=$(curl -fsSL -m 20 \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${api_url} |
-              jq -r '.object.sha'
-          )
-          [[ -z "${source_hash}" || "${source_hash}" == "null" ]] && source_hash="${{ github.sha }}"
+          
+          # Attempt to fetch the source hash with error handling
+          source_hash=""
+          max_retries=3
+          retry_count=0
+          
+          while [[ -z "${source_hash}" || "${source_hash}" == "null" ]] && [[ ${retry_count} -lt ${max_retries} ]]; do
+            source_hash=$(curl -fsSL -m 20 \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                ${api_url} 2>/dev/null | \
+                jq -r '.object.sha' 2>/dev/null)
+            retry_count=$((retry_count + 1))
+            if [[ -z "${source_hash}" || "${source_hash}" == "null" ]]; then
+              echo "::warning::Attempt ${retry_count}/${max_retries} failed to fetch kernel hash, retrying..."
+              sleep 2
+            fi
+          done
+          
+          # Fallback to current commit hash if API fails
+          if [[ -z "${source_hash}" || "${source_hash}" == "null" ]]; then
+            echo "::warning::Failed to fetch kernel source hash from API after ${max_retries} attempts"
+            echo "::warning::Falling back to current repository commit hash: ${{ github.sha }}"
+            source_hash="${{ github.sha }}"
+          else
+            echo "::notice::Successfully fetched kernel source hash: ${source_hash}"
+          fi
+          
           echo "source_hash=${source_hash}" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
