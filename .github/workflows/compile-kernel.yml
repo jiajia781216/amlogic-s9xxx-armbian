@@ -13,12 +13,11 @@ on:
       kernel_source:
         description: "Select the kernel source"
         required: false
-        default: "jiajia781216"
+        default: "ophub"
         type: choice
         options:
           - unifreq
           - ophub
-          - jiajia781216
       kernel_version:
         description: "Select kernel version"
         required: false
@@ -166,7 +165,7 @@ jobs:
             kernel-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: jiajia781216/amlogic-s9xxx-armbian@main
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
