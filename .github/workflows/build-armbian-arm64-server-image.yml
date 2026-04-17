@@ -12,7 +12,7 @@ on:
       set_release:
         description: "Select OS Release."
         required: false
-        default: "bookworm"
+        default: "trixie"
         type: choice
         options:
           - trixie
@@ -22,7 +22,7 @@ on:
       armbian_board:
         description: "Select device board."
         required: false
-        default: "s905x3-hk1"
+        default: "all"
         type: choice
         options:
           - all
@@ -233,7 +233,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.18.y"
+        default: "6.12.y_6.18.y"
         type: choice
         options:
           - 5.10.y
@@ -361,7 +361,6 @@ jobs:
           df -hT ${PWD}
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
-          ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
