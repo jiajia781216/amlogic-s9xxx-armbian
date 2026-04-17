@@ -13,15 +13,16 @@ on:
       kernel_source:
         description: "Select the kernel source"
         required: false
-        default: "unifreq"
+        default: "jiajia781216"
         type: choice
         options:
           - unifreq
           - ophub
+          - jiajia781216
       kernel_version:
         description: "Select kernel version"
         required: false
-        default: "6.12.y"
+        default: "6.18.y"
         type: choice
         options:
           - 5.10.y
@@ -67,7 +68,7 @@ on:
       docker_image:
         description: "Select Armbian docker image"
         required: false
-        default: "trixie"
+        default: "bookworm"
         type: choice
         options:
           - trixie
@@ -77,11 +78,11 @@ on:
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
-        default: "-ophub"
+        default: "-woloong"
         type: choice
         options:
           - -ophub
-          - -yourname
+          - -woloong
 
 env:
   TZ: Etc/UTC
@@ -165,7 +166,7 @@ jobs:
             kernel-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: jiajia781216/amlogic-s9xxx-armbian@master
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
