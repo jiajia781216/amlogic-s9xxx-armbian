@@ -295,6 +295,10 @@ on:
         required: false
         default: "odroidn2"
 
+# 添加工作流权限，允许写入 Release
+permissions:
+  contents: write
+
 env:
   TZ: Etc/UTC
   ROOTFS_SCRIPT: compile-kernel/tools/script/docker/build_armbian_rootfs_file.sh
@@ -335,6 +339,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Create virtual disk for extended storage
+        id: disk
         run: |
           mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
           root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
@@ -361,7 +366,19 @@ jobs:
           df -hT ${PWD}
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
-          ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
+          
+          # 修复：兼容不同 Action 路径，只在目录存在时创建链接
+          actions_dirs=(
+            "/home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main"
+            "/home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main"
+          )
+          for dir in "${actions_dirs[@]}"; do
+            if [[ -d "${dir}" ]]; then
+              ln -sf /builder/build ${dir}/build 2>/dev/null || true
+              echo "Created symlink for ${dir}"
+            fi
+          done
+          
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
