@@ -83,6 +83,10 @@ on:
           - -ophub
           - -woloong
 
+# 添加工作流权限，允许写入 Release
+permissions:
+  contents: write
+
 env:
   TZ: Etc/UTC
 
