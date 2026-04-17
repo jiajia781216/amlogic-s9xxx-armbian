@@ -295,10 +295,6 @@ on:
         required: false
         default: "odroidn2"
 
-# 添加工作流权限，允许写入 Release
-permissions:
-  contents: write
-
 env:
   TZ: Etc/UTC
   ROOTFS_SCRIPT: compile-kernel/tools/script/docker/build_armbian_rootfs_file.sh
@@ -339,7 +335,6 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Create virtual disk for extended storage
-        id: disk
         run: |
           mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
           root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
@@ -366,19 +361,7 @@ jobs:
           df -hT ${PWD}
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
-          
-          # 修复：兼容不同 Action 路径，只在目录存在时创建链接
-          actions_dirs=(
-            "/home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main"
-            "/home/runner/work/_actions/jiajia781216/amlogic-s9xxx-armbian/main"
-          )
-          for dir in "${actions_dirs[@]}"; do
-            if [[ -d "${dir}" ]]; then
-              ln -sf /builder/build ${dir}/build 2>/dev/null || true
-              echo "Created symlink for ${dir}"
-            fi
-          done
-          
+          ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
@@ -428,14 +411,78 @@ jobs:
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve kernel branch to version
+        id: resolve_kernel
+        run: |
+          kernel_input="${{ inputs.armbian_kernel }}"
+          kernel_repo="${{ inputs.kernel_repo }}"
+          
+          echo "Resolving kernel branches: ${kernel_input}"
+          
+          # 处理多内核情况（如 6.12.y_6.18.y）
+          resolved=""
+          for branch in $(echo "$kernel_input" | tr '_' ' '); do
+            # 验证输入格式
+            if [[ ! "$branch" =~ ^[0-9]+\.[0-9]+\.y$ ]]; then
+              echo "::error::Invalid kernel branch format: ${branch}, expected format: X.Y.y"
+              exit 1
+            fi
+            
+            prefix="${branch%.y}"
+            
+            # 从 Release API 查询最新版本
+            echo "Querying latest version for branch: ${branch} (prefix: ${prefix})"
+            
+            api_url="https://api.github.com/repos/${kernel_repo}/releases/tags/kernel_stable"
+            max_retries=3
+            retry_count=0
+            latest=""
+            
+            while [[ -z "$latest" && ${retry_count} -lt ${max_retries} ]]; do
+              files=$(curl -sL -m 30 \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                  "${api_url}" 2>/dev/null | \
+                  jq -r '.assets[].name' 2>/dev/null)
+              
+              if [[ -n "$files" ]]; then
+                latest=$(echo "$files" | \
+                         grep -E "^${prefix}\.[0-9]+\.tar\.gz$" | \
+                         sed 's/\.tar\.gz//' | \
+                         sort -V | \
+                         tail -1)
+              fi
+              
+              retry_count=$((retry_count + 1))
+              if [[ -z "$latest" && ${retry_count} -lt ${max_retries} ]]; then
+                echo "::warning::Attempt ${retry_count}/${max_retries} failed, retrying..."
+                sleep 3
+              fi
+            done
+            
+            if [[ -z "$latest" ]]; then
+              echo "::error::No kernel found for branch ${branch} in ${kernel_repo}/releases/tag/kernel_stable"
+              echo "Available files:"
+              echo "$files" | grep -E "^${prefix}\." || echo "(no matching files)"
+              exit 1
+            fi
+            
+            echo "Resolved ${branch} -> ${latest}"
+            resolved="${resolved:+${resolved}_}${latest}"
+          done
+          
+          echo "Final resolved kernel version: ${resolved}"
+          echo "kernel_version=${resolved}" >> ${GITHUB_OUTPUT}
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
       - name: Rebuild Armbian for target boards
         uses: jiajia781216/amlogic-s9xxx-armbian@main
-        if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
+        if: ${{ steps.clean.outputs.status == 'success' && !cancelled() && steps.resolve_kernel.outputs.status == 'success' }}
         with:
           build_target: armbian
           armbian_path: build/output/images/*.img.gz
           armbian_board: ${{ inputs.armbian_board }}
-          armbian_kernel: ${{ inputs.armbian_kernel }}
+          armbian_kernel: ${{ steps.resolve_kernel.outputs.kernel_version }}
           auto_kernel: true
           kernel_repo: ${{ inputs.kernel_repo }}
           kernel_usage: ${{ inputs.kernel_usage }}
