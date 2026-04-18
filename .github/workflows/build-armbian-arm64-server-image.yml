@@ -295,7 +295,6 @@ on:
         required: false
         default: "odroidn2"
 
-# 添加工作流权限，解决 403 错误
 permissions:
   contents: write
 
@@ -326,7 +325,6 @@ jobs:
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
           sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-build-armbian-depends)
           sudo -E systemctl daemon-reload
-          #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
           sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
@@ -367,26 +365,26 @@ jobs:
           ln -sf /builder/build ${{ github.workspace }}/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
+      - name: Setup QEMU for cross-compilation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static binfmt-support
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          ls -la /proc/sys/fs/binfmt_misc/ | grep qemu || true
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null || true
+
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
         id: compile
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Enable QEMU emulation for ARM cross-compilation
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
-          
-          # 修复 binfmt 注册
-          docker run --rm --privileged aptman/qus -s -- -p aarch64 2>/dev/null || true
-
-          # Set the board name for the base Armbian image
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
-          # Compile options reference: https://docs.armbian.com/Developer-Guide_Build-Options
           cd build/
-              ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
-                           BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
+          ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
+                       BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
+                       COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -394,15 +392,12 @@ jobs:
         id: clean
         if: ${{ steps.compile.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Extract essential artifacts and remove build files
           chmod +x ${ROOTFS_SCRIPT}
           ${ROOTFS_SCRIPT} -v ${{ inputs.set_release }} -s true -c true -k true -p arm64
 
-          # Remove build files while preserving output
           cd build/
           rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
 
-          # Display disk usage after cleanup
           df -hT ${PWD}
           echo "build_tag=Armbian_${{ inputs.set_release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
@@ -424,56 +419,82 @@ jobs:
           kernel_repo="${{ inputs.kernel_repo }}"
           
           echo "Resolving kernel branches: ${kernel_input}"
+          echo "Kernel repo: ${kernel_repo}"
           
-          # 处理多内核情况（如 6.12.y_6.18.y）
           resolved=""
           for branch in $(echo "$kernel_input" | tr '_' ' '); do
-            # 验证输入格式
             if [[ ! "$branch" =~ ^[0-9]+\.[0-9]+\.y$ ]]; then
               echo "::error::Invalid kernel branch format: ${branch}, expected format: X.Y.y"
               exit 1
             fi
             
             prefix="${branch%.y}"
-            
-            # 从 Release API 查询最新版本
             echo "Querying latest version for branch: ${branch} (prefix: ${prefix})"
             
             api_url="https://api.github.com/repos/${kernel_repo}/releases/tags/kernel_stable"
-            max_retries=3
+            max_retries=5
             retry_count=0
             latest=""
+            curl_exit_code=0
             
             while [[ -z "$latest" && ${retry_count} -lt ${max_retries} ]]; do
-              files=$(curl -sL -m 30 \
+              echo "Attempt $((retry_count + 1))/${max_retries}: ${api_url}"
+              
+              http_code=$(curl -sL -m 30 \
+                  -w "%{http_code}" \
+                  -o /tmp/release.json \
                   -H "Accept: application/vnd.github+json" \
                   -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                  "${api_url}" 2>/dev/null | \
-                  jq -r '.assets[].name' 2>/dev/null)
+                  "${api_url}" 2>/dev/null)
               
-              if [[ -n "$files" ]]; then
-                latest=$(echo "$files" | \
-                         grep -E "^${prefix}\.[0-9]+\.tar\.gz$" | \
-                         sed 's/\.tar\.gz//' | \
-                         sort -V | \
-                         tail -1)
+              curl_exit_code=$?
+              echo "HTTP code: ${http_code}, curl exit: ${curl_exit_code}"
+              
+              if [[ "$http_code" == "200" && -f /tmp/release.json ]]; then
+                files=$(cat /tmp/release.json | jq -r '.assets[].name' 2>/dev/null)
+                
+                if [[ -n "$files" ]]; then
+                  echo "Available files:"
+                  echo "$files"
+                  
+                  latest=$(echo "$files" | \
+                           grep -E "^${prefix}\.[0-9]+\.tar\.gz$" | \
+                           sed 's/\.tar\.gz//' | \
+                           sort -V | \
+                           tail -1)
+                  
+                  echo "Matched files for prefix ${prefix}:"
+                  echo "$files" | grep -E "^${prefix}\.[0-9]+\.tar\.gz$" || echo "(none)"
+                else
+                  echo "::warning::No assets found in release"
+                fi
+              else
+                echo "::warning::API request failed: HTTP ${http_code}"
+                cat /tmp/release.json 2>/dev/null | head -20 || true
               fi
               
               retry_count=$((retry_count + 1))
               if [[ -z "$latest" && ${retry_count} -lt ${max_retries} ]]; then
-                echo "::warning::Attempt ${retry_count}/${max_retries} failed, retrying..."
-                sleep 3
+                echo "::warning::Retrying in 5 seconds..."
+                sleep 5
               fi
             done
             
             if [[ -z "$latest" ]]; then
-              echo "::error::No kernel found for branch ${branch} in ${kernel_repo}/releases/tag/kernel_stable"
-              echo "Available files:"
-              echo "$files" | grep -E "^${prefix}\." || echo "(no matching files)"
+              echo "::error::Failed to find kernel for branch ${branch} after ${max_retries} attempts"
+              echo "Debug info:"
+              echo "- API URL: ${api_url}"
+              echo "- Prefix: ${prefix}"
+              echo "- Last HTTP code: ${http_code}"
+              echo "- Curl exit code: ${curl_exit_code}"
+              if [[ -f /tmp/release.json ]]; then
+                echo "- Response preview:"
+                cat /tmp/release.json | head -50 || true
+              fi
               exit 1
             fi
             
-            echo "Resolved ${branch} -> ${latest}"
+            echo "✓ Resolved ${branch} -> ${latest}"
             resolved="${resolved:+${resolved}_}${latest}"
           done
           
