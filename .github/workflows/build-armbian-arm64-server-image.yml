@@ -12,7 +12,7 @@ on:
       set_release:
         description: "Select OS Release."
         required: false
-        default: "trixie"
+        default: "bookworm"
         type: choice
         options:
           - trixie
@@ -22,7 +22,7 @@ on:
       armbian_board:
         description: "Select device board."
         required: false
-        default: "all"
+        default: "s905x3-hk1"
         type: choice
         options:
           - all
@@ -233,7 +233,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.y_6.18.y"
+        default: "6.18.y"
         type: choice
         options:
           - 5.10.y
@@ -293,7 +293,7 @@ on:
       config_board:
         description: "Set the base Armbian board name."
         required: false
-        default: "s905x3-hk1"
+        default: "odroidn2"
 
 permissions:
   contents: write
