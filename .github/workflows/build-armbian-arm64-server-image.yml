@@ -293,7 +293,7 @@ on:
       config_board:
         description: "Set the base Armbian board name."
         required: false
-        default: "odroidn2"
+        default: "s905x3-hk1"
 
 permissions:
   contents: write
