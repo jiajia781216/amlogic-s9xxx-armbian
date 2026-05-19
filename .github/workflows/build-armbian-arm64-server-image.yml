@@ -365,19 +365,23 @@ jobs:
           ln -sf /builder/build ${{ github.workspace }}/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Setup QEMU for cross-compilation
+      # 【新增】创建 userpatches/extensions 目录，消除警告
+      - name: Create userpatches extensions directory
+        working-directory: /builder/build
+        if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static binfmt-support
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          ls -la /proc/sys/fs/binfmt_misc/ | grep qemu || true
-          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null || true
+          mkdir -p userpatches/extensions
 
+      # 注意：原来的 "Setup QEMU for cross-compilation" 步骤已删除，
+      # QEMU 注册移到 Compile 步骤内部，与官方 workflow 保持一致。
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
         id: compile
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
+          # Enable QEMU emulation for ARM cross-compilation
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
+
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
